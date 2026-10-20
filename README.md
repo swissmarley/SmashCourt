@@ -4,6 +4,9 @@ A polished, playable 3D arcade tennis game that runs in the browser. Built with
 **Three.js + Vite + TypeScript**, custom ball physics (no physics engine), procedural
 characters, procedural audio and zero external asset files.
 
+**Play it:** https://swissmarley.github.io/SmashCourt/ (deployed from `main` by the
+GitHub Pages workflow in `.github/workflows/deploy-pages.yml`).
+
 ```bash
 npm install
 npm run dev       # http://localhost:5173
