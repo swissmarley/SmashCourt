@@ -283,6 +283,14 @@ export class Match implements PlayerHost, AIWorld {
     return true;
   }
 
+  isIncoming(p: Player): boolean {
+    const b = this.ball;
+    if (!b.inPlay || b.lastHitTeam === p.team) return false;
+    if (this.sm.current !== 'rally' && this.sm.current !== 'practice') return false;
+    if (this.sm.current === 'practice' && !this.practiceBallLive) return false;
+    return true;
+  }
+
   isPowerBallIncoming(p: Player): boolean {
     const b = this.ball;
     return b.inPlay && b.isPower && b.lastHitTeam !== p.team && b.bounces <= 1 && b.vel.z * p.side > 0;
@@ -336,6 +344,7 @@ export class Match implements PlayerHost, AIWorld {
 
     // --- Speed --------------------------------------------------------------------------
     let speed = def.speed * p.powerScale;
+    if (aiDiff) speed *= aiDiff.shotSpeed;
     speed *= 1 + h.charge * PLAYER.chargeMaxBonus;
     if (h.perfect) speed *= 1 + PLAYER.perfectPowerBonus;
     if (h.chance !== 'none') speed *= 1 + CHANCE.powerBonus + (h.chance === 'match' ? CHANCE.matchBonus : 0);
@@ -346,7 +355,7 @@ export class Match implements PlayerHost, AIWorld {
     let topspin = def.topspin * p.spinScale * (1 + h.charge * 0.3);
     // Sidespin bends the flight toward the aim direction; Tricky types curve a lot.
     const trickMul = p.def.type === 'Tricky' ? 2.2 : 1;
-    let sidespin = -h.aimX * 45 * p.spinScale * trickMul * rightSign;
+    let sidespin = -h.aimX * 28 * p.spinScale * trickMul * rightSign;
     if (h.shot === 'flat' || h.isPower) sidespin *= 0.3;
     if (h.isBlock) {
       topspin = -40;
@@ -358,14 +367,17 @@ export class Match implements PlayerHost, AIWorld {
     if (h.aimTarget) {
       target.copy(h.aimTarget);
     } else {
-      const depth = THREE.MathUtils.clamp(def.depth + h.aimDepth * 0.22, 0.14, 0.97);
+      const depth = THREE.MathUtils.clamp(def.depth + h.aimDepth * 0.12, 0.14, 0.93);
       target.z = oppSide * depth * COURT.halfLength;
       let x = h.aimX * def.width * this.halfWidth * rightSign;
       // Timing: early -> cross-court (away from the hitter's x), late -> down the line.
       const hitterSide = Math.sign(p.pos.x) || rightSign;
       x += -hitterSide * h.timing * PLAYER.timingAimShift * (1 - Math.abs(h.aimX) * 0.4);
-      target.x = THREE.MathUtils.clamp(x, -this.halfWidth * 0.95, this.halfWidth * 0.95);
+      target.x = x;
     }
+    // Aiming never points outside the court by itself; only the error spread can send a ball out.
+    target.x = THREE.MathUtils.clamp(target.x, -(this.halfWidth - 0.4), this.halfWidth - 0.4);
+    if (Math.abs(target.z) > COURT.halfLength - 0.5) target.z = Math.sign(target.z) * (COURT.halfLength - 0.5);
     if (h.isBlock) {
       target.x *= 0.5;
       target.z = oppSide * COURT.halfLength * 0.6;
@@ -378,15 +390,23 @@ export class Match implements PlayerHost, AIWorld {
     if (h.fromDive) sigma *= 2.2;
     if (h.isBlock) sigma *= 1.6;
     if (h.chance !== 'none') sigma *= 0.7;
+    // Hitting on the run, off balance or very late/early is harder.
+    const runFactor = Math.min(1, Math.hypot(p.vel.x, p.vel.z) / Math.max(1, p.runSpeed));
+    sigma *= 1 + runFactor * 0.4;
+    sigma *= 1 + Math.max(0, h.stretch - 0.5) * 1.2;
+    if (Math.abs(h.timing) > 0.6) sigma *= 1.25;
+    if (h.stretch > 0.7) speed *= 0.88;
     if (aiDiff) {
       sigma *= aiDiff.errorScale;
-      // CPU "fatigue": long rallies get progressively sloppier so points do end.
-      sigma *= 1 + Math.min(1, this.rallyHits / 24) * 0.6;
+      // CPU unforced errors: a mishit sends the ball long or wide. More likely when stretched,
+      // running, late in a rally, and on lower difficulties, so points end at a human pace.
+      const pressure = 1 + Math.min(1.5, this.rallyHits / 12) + h.stretch * 1.5 + runFactor * 0.8;
+      if (Math.random() < aiDiff.errorRate * pressure) {
+        const wide = Math.random() < 0.5;
+        if (wide) target.x = Math.sign(target.x || 1) * (this.halfWidth + 0.5 + Math.random() * 1.5);
+        else target.z = oppSide * (COURT.halfLength + 0.6 + Math.random() * 2.5);
+      }
     }
-    // Hitting on the run or very late/early is harder.
-    const runFactor = Math.min(1, Math.hypot(p.vel.x, p.vel.z) / Math.max(1, p.runSpeed));
-    sigma *= 1 + runFactor * 0.6;
-    if (Math.abs(h.timing) > 0.6) sigma *= 1.4;
     target.x += gauss() * sigma;
     target.z += gauss() * sigma * 0.8;
     // Never aim into the net or behind the hitter.
@@ -646,8 +666,15 @@ export class Match implements PlayerHost, AIWorld {
       p.chanceZone = null;
       p.freeze();
     }
-    this.deps.rig.serverPos.copy(server.pos);
-    this.deps.rig.setMode('serve');
+    // Serve close-up only when a human is serving: it sits behind their own end, so the swing back
+    // to the gameplay camera is short. For CPU serves the receiver keeps the gameplay view.
+    const serverCtrl = this.controllers[this.serverIndex];
+    if (serverCtrl.human && !serverCtrl.autopilot) {
+      this.deps.rig.serverPos.copy(server.pos);
+      this.deps.rig.setMode('serve');
+    } else {
+      this.deps.rig.setMode('follow');
+    }
     this.updateScoreboard();
     if (this.faults === 1) this.deps.hud.announce('SECOND SERVE', 1.6);
     else if (this.sm.time === 0 && this.scoring.state.pointsInGame === 0 && !this.scoring.state.inTiebreak) {
@@ -664,6 +691,9 @@ export class Match implements PlayerHost, AIWorld {
     for (const p of this.players) p.unfreeze();
     this.aiServeTimer = TIMING.aiServeDelay * (0.8 + Math.random() * 0.5);
     this.replay.beginRecording();
+    // The close-up was for the pre-serve beat; settle the gameplay camera before anyone tosses so
+    // the receiver can see themselves and the server tosses with a stable view.
+    this.deps.rig.setMode('follow');
   }
 
   private updateServe(dt: number): void {
@@ -676,7 +706,7 @@ export class Match implements PlayerHost, AIWorld {
     const intent = ctrl.intent;
     if (humanServer) {
       const inp = this.deps.input.players[ctrl.humanSlot];
-      ctrl.human!.intent(inp, performance.now(), this.deps.rig.side, server.side, intent);
+      ctrl.human!.intent(inp, this.time * 1000, this.deps.rig.side, server.side, intent);
     }
     if (!this.tossed) {
       // Ball rests in the hand.
@@ -694,7 +724,6 @@ export class Match implements PlayerHost, AIWorld {
         this.tossApex = ball.pos.y + (TIMING.tossSpeed * TIMING.tossSpeed) / (2 * BALL.gravity);
         server.model.setPose('toss');
         audio.swing();
-        this.deps.rig.setMode('follow');
         this.aiServeTimer = 0.1 + Math.random() * 0.1;
       }
     } else {
@@ -726,7 +755,7 @@ export class Match implements PlayerHost, AIWorld {
         // Missed the toss: catch it and start over.
         this.tossed = false;
         server.model.setPose('idle');
-        this.deps.rig.setMode('serve');
+        if (humanServer) this.deps.hud.announce('PRESS J TO TOSS, J AGAIN TO HIT', 1.6);
       }
     }
     // Let the other players move.
@@ -783,7 +812,7 @@ export class Match implements PlayerHost, AIWorld {
     }
     if (aiDiff) {
       sigma *= aiDiff.errorScale;
-      speed *= 0.85 + 0.15 * aiDiff.serveQuality;
+      speed *= aiDiff.shotSpeed * (0.85 + 0.15 * aiDiff.serveQuality);
       if (this.faults === 1) {
         speed *= 0.82;
         sigma *= 0.6;
@@ -837,7 +866,7 @@ export class Match implements PlayerHost, AIWorld {
       ai.update(dt, ctrl.intent, this.sm.current === 'serve' || this.sm.current === 'preServe');
     } else if (ctrl.human) {
       const inp = this.deps.input.players[ctrl.humanSlot];
-      ctrl.human.intent(inp, performance.now(), this.deps.rig.side, p.side, ctrl.intent);
+      ctrl.human.intent(inp, this.time * 1000, this.deps.rig.side, p.side, ctrl.intent);
     }
     p.update(dt, ctrl.intent, this);
   }
@@ -848,7 +877,10 @@ export class Match implements PlayerHost, AIWorld {
       if (!c.human) continue;
       const p = this.players[this.controllers.indexOf(c)];
       c.autopilot = on ? new OpponentAI(p, difficulty, this) : null;
-      if (!on) p.speedScale = 1;
+      if (!on) {
+        p.speedScale = 1;
+        p.reachScale = 1;
+      }
     }
   }
 

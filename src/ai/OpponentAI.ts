@@ -60,6 +60,7 @@ export class OpponentAI {
   ) {
     this.diff = DIFFICULTIES[difficulty];
     player.speedScale = this.diff.speedUse;
+    player.reachScale = this.diff.reachScale;
   }
 
   /** Home (recovery) position for this player. */

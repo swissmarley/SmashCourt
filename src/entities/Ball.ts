@@ -63,7 +63,7 @@ export class Ball {
 
     // Soft ground shadow blob
     this.shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(BALL.renderRadius * 1.6, 20),
+      new THREE.CircleGeometry(BALL.renderRadius * 1.4, 20),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }),
     );
     this.shadow.rotation.x = -Math.PI / 2;
@@ -128,7 +128,7 @@ export class Ball {
     this.isPower = power;
     this.bounces = 0;
     this.trail.setColor(power ? COLORS.power : SHOTS[shot].color);
-    this.trail.width = power ? 0.22 : shot === 'flat' ? 0.1 : 0.12;
+    this.trail.width = power ? 0.28 : shot === 'flat' ? 0.13 : 0.16;
     this.trail.intensity = 1;
     this.trail.reset(this.state.pos);
     this.stretch = 1;

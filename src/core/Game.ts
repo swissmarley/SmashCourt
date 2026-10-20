@@ -351,6 +351,7 @@ export class Game {
     if (this.backdrop) this.backdrop.update(dt, this.scene.camera.position);
     this.rig.update(this.state === 'paused' ? 0 : dt);
     this.hud.update(dt, this.loop.fps);
+    if (this.state === 'match') this.scene.adaptQuality(this.loop.fps, dt);
     audio.update(dt);
     this.scene.render();
   }

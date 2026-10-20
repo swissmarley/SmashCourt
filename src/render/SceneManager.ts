@@ -17,7 +17,7 @@ export class SceneManager {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -100,6 +100,27 @@ export class SceneManager {
     this.hemi.color.set(court.colors.sky);
     this.hemi.groundColor.set(court.colors.ground);
     this.scene.fog = new THREE.Fog(court.colors.fog, 60, 180);
+  }
+
+  private lowFpsTime = 0;
+  private quality: 'high' | 'low' = 'high';
+
+  /**
+   * Adaptive quality: if the frame rate stays low, drop the render resolution and shadow detail
+   * so the game keeps its 60 FPS feel on weaker machines.
+   */
+  adaptQuality(fps: number, dt: number): void {
+    if (this.quality === 'low') return;
+    if (fps < 42) this.lowFpsTime += dt;
+    else this.lowFpsTime = Math.max(0, this.lowFpsTime - dt);
+    if (this.lowFpsTime > 2.5) {
+      this.quality = 'low';
+      this.renderer.setPixelRatio(1);
+      this.sun.shadow.mapSize.set(1024, 1024);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+      this.resize();
+    }
   }
 
   resize(): void {

@@ -14,9 +14,9 @@ import type { Intent } from '../entities/Player';
  */
 export class HumanController {
   /** Presses closer than this count as "together" (flat). */
-  private static TOGETHER_MS = 35;
+  private static TOGETHER_MS = 30;
   /** Buffer window: a single press is committed once this much time has passed. */
-  private static WINDOW_MS = 55;
+  private static WINDOW_MS = 40;
   private pending: { shot: 'topspin' | 'slice'; since: number } | null = null;
   /** The shot currently held down (drives charging). */
   private held: ShotType | null = null;

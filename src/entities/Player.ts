@@ -45,6 +45,8 @@ export interface HitParams {
   /** 'none' = no chance zone, 'any' = in a zone, 'match' = in a zone with the matching button. */
   chance: 'none' | 'any' | 'match';
   kind: SwingKind;
+  /** 0 = ball right at the body, 1 = at the edge of the reach (off balance). */
+  stretch: number;
 }
 
 export interface ChanceZone {
@@ -59,6 +61,8 @@ export interface PlayerHost {
   ball: Ball;
   /** Rules check: may this player strike the ball right now? */
   canHit(p: Player): boolean;
+  /** Is the ball heading toward this player (even if it may not be struck yet, e.g. a serve before the bounce)? */
+  isIncoming(p: Player): boolean;
   /** Where the incoming ball will be when it reaches this player's depth (for the magnet). */
   getIntercept(p: Player): { x: number; z: number; t: number } | null;
   onHit(p: Player, params: HitParams): void;
@@ -117,6 +121,8 @@ export class Player {
   private tmp = new THREE.Vector3();
   /** Speed multiplier the controller may apply (AI difficulty). */
   speedScale = 1;
+  /** Reach multiplier the controller may apply (AI difficulty). */
+  reachScale = 1;
 
   constructor(index: number, team: number, side: number, def: CharacterDef) {
     this.index = index;
@@ -181,7 +187,7 @@ export class Player {
     const rp = this.racketPoint(this.tmp);
     const dx = b.x - rp.x;
     const dz = b.z - rp.z;
-    const r = this.reach + bonus;
+    const r = this.reach * this.reachScale + bonus;
     if (dx * dx + dz * dz > r * r) return false;
     if (b.y > PLAYER.maxHitHeight + this.model.height * 0.2) return false;
     if (b.y < PLAYER.minHitHeight) return false;
@@ -266,11 +272,14 @@ export class Player {
     }
 
     const canAct = this.state === 'idle' || this.state === 'charging' || this.state === 'swinging';
-    const incoming = ball.inPlay && host.canHit(this);
-    const inReach = incoming && this.ballInReach(ball);
+    // `incoming` lets the player load a charge early (e.g. before a serve bounces); `hittable`
+    // is the rules check that gates the actual strike.
+    const incoming = ball.inPlay && host.isIncoming(this);
+    const hittable = incoming && host.canHit(this);
+    const inReach = hittable && this.ballInReach(ball);
 
     // --- Power Shot block / knockback -------------------------------------------------
-    if (incoming && host.isPowerBallIncoming(this) && !this.blockFailed) {
+    if (hittable && host.isPowerBallIncoming(this) && !this.blockFailed) {
       if (this.ballInReach(ball, 0.25)) {
         const pressedRecently = this.time - this.lastShotPressTime <= POWER_METER.blockWindow;
         if (pressedRecently && canAct) {
@@ -323,7 +332,7 @@ export class Player {
           // Releasing early cancels the charge, unless the ball is about to arrive: then the
           // swing stays queued so quick taps still connect (forgiveness).
           const icp = host.getIntercept(this);
-          if (!icp || icp.t > 0.45) {
+          if (!icp || icp.t > 0.6) {
             this.state = 'idle';
             this.charge = 0;
           }
@@ -347,19 +356,28 @@ export class Player {
       const maxSpeed = this.runSpeed * this.speedScale * (this.state === 'swinging' ? 0.55 : 1);
       let mx = intent.moveX;
       let mz = intent.moveZ;
+      const icp = incoming ? host.getIntercept(this) : null;
       if (this.state === 'charging') {
+        // Feet are planted for steering, but the player locks on and shuffles to meet the ball.
         mx = 0;
         mz = 0;
-      }
-      // Magnet: nudge toward the intercept when the ball is coming and the player is close.
-      const icp = incoming ? host.getIntercept(this) : null;
-      if (icp) {
+        if (icp) {
+          const dx = icp.x - this.pos.x;
+          const dz = icp.z - this.pos.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist > 0.1) {
+            const k = Math.min(1, dist / 0.5) * PLAYER.chargeLockOnSpeed;
+            mx = (dx / dist) * k;
+            mz = (dz / dist) * k * 0.6;
+          }
+        }
+      } else if (icp) {
+        // Magnet: nudge toward the intercept when the ball is coming and the player is close.
         const dx = icp.x - this.pos.x;
         const dist = Math.abs(dx);
         if (dist < PLAYER.magnetRange && dist > 0.05) {
-          const strength = this.state === 'charging' ? PLAYER.magnetStrength * 0.6 : PLAYER.magnetStrength;
           const inputMag = Math.hypot(mx, mz);
-          const assist = Math.sign(dx) * Math.min(1, dist / 0.6) * strength * (1 - inputMag * 0.6);
+          const assist = Math.sign(dx) * Math.min(1, dist / 0.6) * PLAYER.magnetStrength * (1 - inputMag * 0.5);
           mx += assist;
         }
       }
@@ -427,6 +445,8 @@ export class Player {
     const perfect = !fromDive && !isBlock && Math.abs(timing) < PLAYER.perfectWindow && charge < 0.05;
     const isPower = shot === 'power';
     const chance = this.chanceFor(shot);
+    const rp = this.racketPoint(this.tmp);
+    const stretch = Math.min(1, Math.hypot(ball.pos.x - rp.x, ball.pos.z - rp.z) / Math.max(0.3, this.reach * this.reachScale));
     const params: HitParams = {
       shot,
       charge,
@@ -440,6 +460,7 @@ export class Player {
       fromDive,
       chance,
       kind,
+      stretch,
     };
     this.lastHitWasPerfect = perfect;
     if (isPower) this.powerMeter = 0;

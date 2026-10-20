@@ -27,6 +27,12 @@ export interface DifficultyDef {
   blockChance: number;
   /** Serve speed fraction. */
   serveQuality: number;
+  /** Multiplier on the CPU's shot and serve speed (slower balls on Easy). */
+  shotSpeed: number;
+  /** Base probability per shot of an unforced error (grows with rally length and when stretched). */
+  errorRate: number;
+  /** Fraction of the character's reach the CPU can use. */
+  reachScale: number;
 }
 
 export const DIFFICULTIES: Record<Difficulty, DifficultyDef> = {
@@ -45,6 +51,9 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyDef> = {
     dives: false,
     blockChance: 0.2,
     serveQuality: 0.7,
+    shotSpeed: 0.8,
+    errorRate: 0.09,
+    reachScale: 0.8,
   },
   medium: {
     id: 'medium',
@@ -61,13 +70,16 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyDef> = {
     dives: true,
     blockChance: 0.5,
     serveQuality: 0.85,
+    shotSpeed: 0.92,
+    errorRate: 0.045,
+    reachScale: 0.88,
   },
   hard: {
     id: 'hard',
     label: 'Hard',
-    reactionDelay: 0.14,
+    reactionDelay: 0.18,
     predictionError: 0.2,
-    aimMargin: 0.55,
+    aimMargin: 0.7,
     errorScale: 0.7,
     speedUse: 1.0,
     tacticalChance: 0.9,
@@ -77,5 +89,8 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyDef> = {
     dives: true,
     blockChance: 0.85,
     serveQuality: 1.0,
+    shotSpeed: 1.0,
+    errorRate: 0.03,
+    reachScale: 1.0,
   },
 };

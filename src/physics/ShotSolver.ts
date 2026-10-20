@@ -155,6 +155,10 @@ export function solveShot(req: SolveRequest, env: PhysicsEnv): SolveResult {
   let speed = req.speed;
   let angle = 0;
   let last = { range: 0, lateral: 0, clearance: -10, time: 0, landing: null as { x: number; z: number } | null };
+  // Unit direction from the start to the target: the lateral miss is measured against this line
+  // (not against the current, already-corrected aim line) so the azimuth correction converges.
+  const dir0x = dx / dist;
+  const dir0z = dz / dist;
 
   for (let iter = 0; iter < 3; iter++) {
     tmpDir.set(Math.sin(yaw), 0, Math.cos(yaw));
@@ -198,9 +202,11 @@ export function solveShot(req: SolveRequest, env: PhysicsEnv): SolveResult {
       last = shoot(start, tmpDir, speed, angle, req.topspin, req.sidespin, solverEnv);
     }
 
-    // Sidespin azimuth correction.
-    if (Math.abs(req.sidespin) < 1 || Math.abs(last.lateral) < 0.05) break;
-    yaw -= Math.atan2(last.lateral, dist);
+    // Sidespin azimuth correction: rotate the aim by the angle of the lateral miss from the target.
+    if (Math.abs(req.sidespin) < 1 || !last.landing) break;
+    const missLat = (last.landing.x - target.x) * dir0z - (last.landing.z - target.z) * dir0x;
+    if (Math.abs(missLat) < 0.05) break;
+    yaw -= Math.atan2(missLat, dist);
   }
 
   tmpDir.set(Math.sin(yaw), 0, Math.cos(yaw));

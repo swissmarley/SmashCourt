@@ -34,14 +34,18 @@ export const COURT = {
 export const BALL = {
   /** Real radius used by the physics. */
   radius: 0.035,
-  /** Render radius (slightly bigger for readability). */
-  renderRadius: 0.065,
+  /** Render radius (bigger than real for readability at broadcast distance). */
+  renderRadius: 0.095,
   /** Arcade gravity. Real gravity is 9.81, the arcade value makes shots snappier. */
-  gravity: 13.0,
-  /** Quadratic air drag coefficient (per metre). v' = v - drag * |v| * v * dt */
-  drag: 0.012,
-  /** Magnus coefficient: a = magnus * (spin x velocity). Spin is in rad/s. */
-  magnus: 0.0045,
+  gravity: 12.0,
+  /** Quadratic air drag coefficient (per metre). v' = v - drag * |v| * v * dt. Kept low for an arcade feel. */
+  drag: 0.005,
+  /**
+   * Magnus coefficient: a = magnus * (spin x velocity). Spin is in rad/s. At 170 rad/s and 20 m/s
+   * this gives ~3.7 m/s^2 of dip (about 0.3 g), enough to read clearly without turning rally balls
+   * into moonballs.
+   */
+  magnus: 0.0011,
   /** Spin decays towards zero in flight (per second). */
   spinDecay: 0.25,
   /** How much spin survives a bounce. */
@@ -84,16 +88,18 @@ export const PLAYER = {
   /** Deceleration when no input. */
   deceleration: 42,
   /** Base reach radius (m) at a defensive stat of 1; the hit volume is a disc around the player. */
-  baseReach: 1.05,
+  baseReach: 1.45,
   reachPerStat: 0.05,
   /** Max ball height the player can reach (overheads). */
   maxHitHeight: 2.55,
   /** Minimum ball height the player can reach without a dive. */
   minHitHeight: 0.0,
   /** Lateral "magnet" speed assist toward the ball as a fraction of run speed. */
-  magnetStrength: 0.45,
+  magnetStrength: 0.7,
   /** Magnet only works within this distance of the ball's intercept point. */
-  magnetRange: 2.4,
+  magnetRange: 3.2,
+  /** While charging the player cannot steer, but shuffles toward the ball at this fraction of run speed. */
+  chargeLockOnSpeed: 0.85,
   /** How long a full charge takes (seconds). */
   chargeTime: 1.0,
   /** Power multiplier at full charge. */
@@ -102,7 +108,7 @@ export const PLAYER = {
   diveDistance: 2.4,
   diveDuration: 0.42,
   diveRecovery: 0.75,
-  diveReachBonus: 0.6,
+  diveReachBonus: 0.85,
   /** Seconds the player is frozen after a shot (swing follow-through). */
   swingRecovery: 0.22,
   /** Timing window: ball distance (m) from the ideal contact point mapped to timing [-1, 1]. */
@@ -112,11 +118,11 @@ export const PLAYER = {
   /** Speed bonus for a perfect hit. */
   perfectPowerBonus: 0.12,
   /** Lateral aim deflection (m at the far baseline) for a full early/late timing. */
-  timingAimShift: 2.6,
+  timingAimShift: 1.6,
   /** Knockback stun when a Power Shot is not blocked. */
   powerShotStun: 0.9,
   /** Hit-stop freeze on contact for readability (seconds, real time). */
-  hitStop: 0.03,
+  hitStop: 0.02,
 } as const;
 
 export const POWER_METER = {
@@ -157,8 +163,8 @@ export const CAMERA = {
   lookAhead: 0.0,
   lookHeight: 0.4,
   fov: 50,
-  /** How much the rig follows the player's x position. */
-  followX: 0.35,
+  /** How much the rig follows the player's x position (kept small so aiming stays stable). */
+  followX: 0.2,
   /** Damping for the follow. */
   damping: 4.5,
   /** Serve close-up duration. */
