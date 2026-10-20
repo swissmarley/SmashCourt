@@ -166,7 +166,7 @@ export class Match implements PlayerHost, AIWorld {
       netCollision: true,
     };
     this.scoring = new Scoring(config.length, Math.random() < 0.5 ? 0 : 1);
-    this.crowd = new Crowd(config.court.colors.crowdAccent, config.court.colors.stands, config.court.theme === 'garden' ? 1 : 2);
+    this.crowd = new Crowd(config.court.colors.crowdAccent, config.court.colors.stands, config.court.theme === 'garden' ? 1 : 2, config.court.theme === 'garden' ? 1.6 : config.court.theme === 'clay' ? 1.8 : config.court.theme === 'candy' ? 2.0 : 2.2);
     this.aura = new PowerAura(this.particles);
 
     // Build players
@@ -1138,7 +1138,7 @@ export class Match implements PlayerHost, AIWorld {
   private updateMatchOver(dt: number): void {
     this.confettiTimer -= dt;
     if (this.confettiTimer > 0 && Math.random() < dt * 6) {
-      const w = this.players.find((p) => p.team === this.scoring.state.winner)!;
+      const w = this.players.find((p) => p.team === (this.scoring.state.winner ?? 0)) ?? this.players[0];
       burstConfetti(this.particles, new THREE.Vector3(w.pos.x + (Math.random() - 0.5) * 4, 4 + Math.random() * 2, w.pos.z + (Math.random() - 0.5) * 4), 30);
     }
     for (const p of this.players) {

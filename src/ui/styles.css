@@ -80,7 +80,7 @@ b { color: var(--yellow); }
 
 /* ---------- Menus ---------- */
 .menus { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 30%, rgba(20,24,60,.55), rgba(10,10,25,.85)); }
-.screen-title { background: radial-gradient(ellipse at 50% 30%, rgba(20,24,60,.35), rgba(10,10,25,.7)); }
+.screen-title { background: radial-gradient(ellipse at 50% 30%, rgba(20,24,60,.15), rgba(10,10,25,.45)); }
 .screen-pause { background: rgba(10,10,25,.6); }
 .panel { background: rgba(15,16,32,.92); border: 4px solid var(--ink); border-radius: 22px; padding: 26px 34px; min-width: 420px; max-width: min(960px, 94vw); max-height: 92vh; overflow: auto; box-shadow: 0 12px 0 rgba(0,0,0,.4), 0 0 60px rgba(62,201,255,.15); }
 .screen-title .panel { background: transparent; border: none; box-shadow: none; text-align: center; cursor: pointer; }

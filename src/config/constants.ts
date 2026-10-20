@@ -151,12 +151,12 @@ export const CHANCE = {
 } as const;
 
 export const CAMERA = {
-  /** Base rig distance behind the baseline and height. */
-  distance: 11.0,
-  height: 12.4,
-  lookAhead: -3.2,
+  /** Base rig distance behind the baseline and height (gives ~30 degrees of elevation). */
+  distance: 10.5,
+  height: 13.5,
+  lookAhead: 0.0,
   lookHeight: 0.4,
-  fov: 48,
+  fov: 50,
   /** How much the rig follows the player's x position. */
   followX: 0.35,
   /** Damping for the follow. */

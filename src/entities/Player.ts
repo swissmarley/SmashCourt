@@ -222,7 +222,7 @@ export class Player {
     this.time += dt;
     const ball = host.ball;
     this.stateTimer += dt;
-    if (intent.shotPressed) this.lastShotPressTime = this.time;
+    if (intent.shotPressed || intent.power) this.lastShotPressTime = this.time;
 
     // --- Timed states --------------------------------------------------------------
     switch (this.state) {

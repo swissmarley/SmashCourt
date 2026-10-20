@@ -40,7 +40,7 @@ class MenuBackdrop {
   constructor(courtId: CourtId) {
     const def = getCourt(courtId);
     this.court = new Court(def);
-    this.crowd = new Crowd(def.colors.crowdAccent, def.colors.stands, 2);
+    this.crowd = new Crowd(def.colors.crowdAccent, def.colors.stands, def.theme === 'garden' ? 1 : 2, def.theme === 'garden' ? 1.6 : def.theme === 'clay' ? 1.8 : def.theme === 'candy' ? 2.0 : 2.2);
     this.group.add(this.court.group, new Net().group, this.crowd.mesh);
     const picks = [...CHARACTERS].sort(() => Math.random() - 0.5).slice(0, 2);
     picks.forEach((c, i) => {
